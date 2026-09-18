@@ -1,3 +1,9 @@
+<a href="https://infostart.ru/public/2794366/"><img src="https://infostart.ru/bitrix/templates/sandbox_empty/assets/tpl/abo/img/logo.svg" alt="Infostart" style="vertical-align: middle;"></a> - Первая часть
+
+<br>
+
+<a href="https://infostart.ru/public/2794366/"><img src="https://infostart.ru/bitrix/templates/sandbox_empty/assets/tpl/abo/img/logo.svg" alt="Infostart" style="vertical-align: middle;"></a> - Вторая часть
+
 # NOPik: AI Agent Architecture in 1C
 
 ![Project Status](https://img.shields.io/badge/status-active-brightgreen) ![Language](https://img.shields.io/badge/language-1C%20%26%20Python-blue) ![License](https://img.shields.io/badge/license-MIT-green)
