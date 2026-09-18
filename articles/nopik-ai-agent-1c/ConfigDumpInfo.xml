@@ -1,0 +1,25 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<ConfigDumpInfo xmlns="http://v8.1c.ru/8.3/xcf/dumpinfo" xmlns:xen="http://v8.1c.ru/8.3/xcf/enums" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" format="Hierarchical" version="2.20">
+	<ConfigVersions>
+		<Metadata name="CommonCommand.НОПик_СпроситьАгента" id="43afa94a-aa17-4a81-bb55-ad3b5e4f287b" configVersion="4730a479ff0c13d7d9e62190252f38d98aa18877"/>
+		<Metadata name="CommonCommand.НОПик_СпроситьАгента.CommandModule" id="43afa94a-aa17-4a81-bb55-ad3b5e4f287b.2" configVersion="02f24e4163fb9028886d7b876c55d31f486e99f1"/>
+		<Metadata name="CommonForm.НОПик_ОжиданиеОтвета" id="db85c033-ef72-4f0a-a096-450af6de68a6" configVersion="c4e927ca1273050eb144f4f03771b8fa0ba8e5ed"/>
+		<Metadata name="CommonForm.НОПик_ОжиданиеОтвета.Form" id="db85c033-ef72-4f0a-a096-450af6de68a6.0" configVersion="3a86e6b19c482f91e54b0ce8cc21c8b4334d7c33"/>
+		<Metadata name="CommonModule.НОПик_КлиентСервер" id="51dadc75-820c-49a6-8d9d-52950e78ec20" configVersion="b2d9c13e819411234e5b250a5026d35b5e452472"/>
+		<Metadata name="CommonModule.НОПик_КлиентСервер.Module" id="51dadc75-820c-49a6-8d9d-52950e78ec20.0" configVersion="f48ab9a173706fc59fa731af31f1f510d9d2674f"/>
+		<Metadata name="CommonModule.НОПик_СКД" id="5150dd45-329d-4030-9826-fd0c8b062c61" configVersion="beda7b6a615e375a047b5cf1cdfa1a901618b508"/>
+		<Metadata name="CommonModule.НОПик_СКД.Module" id="5150dd45-329d-4030-9826-fd0c8b062c61.0" configVersion="f102e9fa194e106bea4c413d0d983b61490783ab"/>
+		<Metadata name="CommonModule.НОПик_Сеть" id="2eb01bbf-0aa5-4148-83c5-c4d615a8846a" configVersion="4cc5fd3c9cd64d2860ad1e27aacbb203c497abf0"/>
+		<Metadata name="CommonModule.НОПик_Сеть.Module" id="2eb01bbf-0aa5-4148-83c5-c4d615a8846a.0" configVersion="d52b4965f33b518c8fe17a13cfcce38d50660e48"/>
+		<Metadata name="Configuration.NOPik" id="3187d183-d168-4768-86bf-6d37ce3b8ba1" configVersion="8529a1912ec8a0ce73a55abb04478e15e71b9f3a"/>
+		<Metadata name="Constant.НОПик_TokenAuth" id="45df918c-b2b7-4dff-828a-89684b5c91f5" configVersion="634bf0d339c2d9451b160eb7f852609849ad6313"/>
+		<Metadata name="HTTPService.НОПик_СервисСКД" id="6c15687e-56d0-4fb8-82ea-9a71048a7586" configVersion="04d58143560f79745ed6bdc4ca05e256791da8c6">
+			<Metadata name="HTTPService.НОПик_СервисСКД.URLTemplate.skd" id="0e51fa70-e5a1-4c14-bb2d-6e85bbcd3e60"/>
+			<Metadata name="HTTPService.НОПик_СервисСКД.URLTemplate.skd.Method.ПолучитьОстатки" id="a68271f8-1a5a-499a-9406-e5107ce80e5d"/>
+		</Metadata>
+		<Metadata name="HTTPService.НОПик_СервисСКД.Module" id="6c15687e-56d0-4fb8-82ea-9a71048a7586.0" configVersion="bebe11c70e79d5058417591298734c5f07139d63"/>
+		<Metadata name="Language.Русский" id="98e905b0-a7af-469a-a886-1903b51136c4" configVersion="e14203bceebf0734f437a5e50530257b1896be9d"/>
+		<Metadata name="Role.НОПик_ОсновнаяРоль" id="0102608e-4dc3-4ca3-b1bf-efec1b5e04c2" configVersion="7dd4d4facedbdd76187d35d4a4275fbc46c4aac4"/>
+		<Metadata name="Subsystem.НОПик_Раздел" id="200b43c8-5123-43aa-9d7a-319801f482f0" configVersion="27f092092833eaae8a36fa5d1fae69281e31369b"/>
+	</ConfigVersions>
+</ConfigDumpInfo>
