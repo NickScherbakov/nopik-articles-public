@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<ConfigDumpInfo xmlns="http://v8.1c.ru/8.3/xcf/dumpinfo" xmlns:xen="http://v8.1c.ru/8.3/xcf/enums" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" format="Hierarchical" version="2.20">
+	<ConfigVersions>
+		<Metadata name="CommonCommand.НОПик_СпроситьАгента" id="756f6b38-190c-4e6a-8d6e-da72a65be8dc" configVersion="c4c5b84cf8d124f4de571ca9085be33b5a4be9f7"/>
+		<Metadata name="CommonCommand.НОПик_СпроситьАгента.CommandModule" id="756f6b38-190c-4e6a-8d6e-da72a65be8dc.2" configVersion="665ec4f0a8cef08b84f4634fedde223e81524ea1"/>
+		<Metadata name="CommonForm.НОПик_ОжиданиеОтвета" id="1f436518-b8b8-4202-b86e-0115e4b15ab3" configVersion="3a86f76338794fa4fe235a3110db37e623369ac8"/>
+		<Metadata name="CommonForm.НОПик_ОжиданиеОтвета.Form" id="1f436518-b8b8-4202-b86e-0115e4b15ab3.0" configVersion="b4cce1d38d4325a78535f02591bd91cac5138cec"/>
+		<Metadata name="CommonModule.НОПик_КлиентСервер" id="523c4951-6832-4943-8c46-148aca6c10f9" configVersion="48d5ec09f6aca0b391968b331cc483b1cdc85a83"/>
+		<Metadata name="CommonModule.НОПик_КлиентСервер.Module" id="523c4951-6832-4943-8c46-148aca6c10f9.0" configVersion="b578cadac8b039a7f09523c6769813e144ab5815"/>
+		<Metadata name="CommonModule.НОПик_Сеть" id="5e581f20-5a86-4535-88ba-cacf2ffaf9fe" configVersion="6e79a36e2b8858860e8d22c0015da7105a8b0c10"/>
+		<Metadata name="CommonModule.НОПик_Сеть.Module" id="5e581f20-5a86-4535-88ba-cacf2ffaf9fe.0" configVersion="571f53e97484549d6274700c925f9636dcaaa3a5"/>
+		<Metadata name="Configuration.NOPik" id="f02ee53a-795d-48ea-93a8-75a9f5d6a17f" configVersion="f8cca6ac1119c3da83d5ef574a1197970401d3f6"/>
+		<Metadata name="Language.Русский" id="133c48c6-1f01-4e1a-b03f-0198492b3c28" configVersion="334982948ad47dc0883592e28c06df0f94da6232"/>
+		<Metadata name="Role.НОПик_ОсновнаяРоль" id="5af41786-466f-47f8-aaa4-052310887da5" configVersion="aa0db55cc1791a7efb2cfbf3f2a89b7d9ca4cc5d"/>
+		<Metadata name="Role.НОПик_ОсновнаяРоль.Rights" id="5af41786-466f-47f8-aaa4-052310887da5.0" configVersion="48d51e4be87845325c37543b54285820bf20fc47"/>
+		<Metadata name="Subsystem.НОПик_Раздел" id="818a11bf-506f-49f9-889d-933902dda598" configVersion="3734fd37a5de3a77a0fcd58c40beb20024ed7056"/>
+	</ConfigVersions>
+</ConfigDumpInfo>
