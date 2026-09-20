@@ -2,7 +2,7 @@
 
 <br>
 
-<a href="https://infostart.ru/public/2794366/"><img src="https://infostart.ru/bitrix/templates/sandbox_empty/assets/tpl/abo/img/logo.svg" alt="Infostart" style="vertical-align: middle;"></a> - Вторая часть
+<a href="https://infostart.ru/public/2794729/"><img src="https://infostart.ru/bitrix/templates/sandbox_empty/assets/tpl/abo/img/logo.svg" alt="Infostart" style="vertical-align: middle;"></a> - Вторая часть
 
 # NOPik: AI Agent Architecture in 1C
 
