@@ -1,0 +1,364 @@
+<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #24292e;">
+
+  <!-- Вводный блок / Заголовок -->
+  <div style="background: #f4f8fc; border-left: 5px solid #0066cc; padding: 16px 20px; margin-bottom: 24px; border-radius: 6px;">
+    <h2 style="margin: 0 0 10px 0; color: #0066cc; font-size: 22px; border: none; padding: 0;">Паттерны рассуждений и мультиагентная оркестрация enterprise-процессов 1С</h2>
+    <p style="font-size: 15px; color: #444d56; margin: 0 0 8px 0; font-weight: 500;">
+      Вторая статья цикла NOPik: почему линейный граф состояний не масштабируется на сложные сценарии, и как декомпозиция на роли (Супервайзер, Аналитик метаданных, Сборщик СКД) с паттернами ReAct и Tree-of-Thoughts решает эту проблему.
+    </p>
+    <p style="font-size: 13px; color: #586069; margin: 0;">
+      <strong>Целевая аудитория:</strong> Архитекторы решений 1С, ведущие разработчики, специалисты по интеграции ИИ.<br>
+      <strong>Применимость:</strong> Внешний оркестратор NOPik (Python / LangGraph); контур 1С:Предприятие 8.3 не меняется относительно статьи 1.<br>
+      <strong>Серия:</strong> NOPik - автономный ИИ-агент для 1С:Предприятие 8 (статья 2 из 7).
+    </p>
+  </div>
+
+  <!-- Оглавление -->
+  <div style="background: #ffffff; border: 1px solid #dbe2ea; border-radius: 6px; padding: 14px 18px; margin: 20px 0;">
+    <strong style="display: block; margin-bottom: 8px; color: #24292e; font-size: 14px;">Оглавление:</strong>
+    <ol style="margin: 0; padding-left: 20px; line-height: 1.8; font-size: 14px; color: #0066cc;">
+      <li><a href="#roles-shift" style="color: #0066cc; text-decoration: none;">От линейного графа к ролям</a></li>
+      <li><a href="#three-roles" style="color: #0066cc; text-decoration: none;">Три роли NOPik</a></li>
+      <li><a href="#react" style="color: #0066cc; text-decoration: none;">Паттерн ReAct у Аналитика метаданных</a></li>
+      <li><a href="#tot" style="color: #0066cc; text-decoration: none;">Паттерн Tree-of-Thoughts у Сборщика СКД</a></li>
+      <li><a href="#supervisor-graph" style="color: #0066cc; text-decoration: none;">Сборка графа: супервайзер и conditional edges</a></li>
+      <li><a href="#tests" style="color: #0066cc; text-decoration: none;">Тестирование маршрутизации</a></li>
+      <li><a href="#next" style="color: #0066cc; text-decoration: none;">Что дальше</a></li>
+    </ol>
+  </div>
+
+  <!-- Раздел 1 -->
+  <h2 id="roles-shift" style="font-size: 19px; line-height: 1.4; margin-top: 35px; margin-bottom: 14px; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px;"><span style="color: #111827; font-weight: bold;">🔍 Диагностика:</span> <span style="color: #0066cc; font-weight: bold;">от линейного графа к ролям</span></h2>
+  <p>
+    В статье 1 цикла граф состояний NOPik был намеренно упрощен до линейной цепочки <code>analyze_intent → plan_executor → deliver_to_1c</code>. Такая цепочка наглядно демонстрирует переход от одного гигантского промпта к формальному FSM, но у нее есть системный недостаток: один узел <code>plan_executor</code> отвечает сразу за все прикладные сценарии - и построение отчета, и диагностику ошибки, и общий ответ. По мере роста числа сценариев этот узел неизбежно превращается в новую версию того самого «монолитного промпта», от которого мы уходили.
+  </p>
+  <p>
+    <strong>Решение</strong> - декомпозиция по ролям с явным супервайзером, а не наращивание ветвлений внутри одного узла: та же логика, что в микросервисной архитектуре - каждая роль отвечает за одну зону ответственности и не обязана знать о существовании соседних ролей.
+  </p>
+
+  <!-- Раздел 2 -->
+  <h2 id="three-roles" style="font-size: 19px; line-height: 1.4; margin-top: 35px; margin-bottom: 14px; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px;"><span style="color: #111827; font-weight: bold;">📂 Структура:</span> <span style="color: #0066cc; font-weight: bold;">три роли NOPik</span></h2>
+  <p>Начиная с этой статьи оркестратор NOPik построен вокруг трех ролей:</p>
+  <ul style="line-height: 1.8;">
+    <li><strong>Супервайзер (Supervisor)</strong> - единственный узел, которому разрешено видеть весь маршрут целиком. Классифицирует намерение пользователя и решает, какая роль обработает запрос дальше. Не выполняет прикладной работы сам.</li>
+    <li><strong>Аналитик метаданных (Metadata Analyst)</strong> - находит объекты метаданных 1С (справочники, регистры, реквизиты), релевантные запросу, работая по паттерну <strong>ReAct</strong>.</li>
+    <li><strong>Сборщик СКД (SKD Collector)</strong> - строит и «исполняет» отчет через Систему компоновки данных, работая по паттерну <strong>Tree-of-Thoughts</strong>.</li>
+  </ul>
+  <p>Такое разделение прямо соответствует терминологии HSM из статьи 1: три роли образуют суперсостояние <code>WORKING</code>, а супервайзер реализует функцию переходов <code>δ</code> этого суперсостояния.</p>
+
+  <!-- Раздел 3 -->
+  <h2 id="react" style="font-size: 19px; line-height: 1.4; margin-top: 35px; margin-bottom: 14px; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px;"><span style="color: #111827; font-weight: bold;">💻 Паттерн ReAct:</span> <span style="color: #0066cc; font-weight: bold;">Аналитик метаданных</span></h2>
+  <p>
+    <strong>ReAct</strong> (Reasoning + Acting) - паттерн, в котором рассуждение модели (Thought) перемежается с вызовом инструмента (Action) и анализом его результата (Observation), и цикл повторяется, пока не будет собрано достаточно информации.
+  </p>
+  <p>
+    Наивная реализация зашивает цикл <code>while</code> внутрь одной функции на Python - и тогда граф состояний перестает быть графом состояний, превращаясь обратно в скрытый монолитный скрипт с ИИ внутри. В NOPik цикл ReAct вынесен на уровень графа: каждый вызов узла <code>metadata_analyst_node</code> выполняет <strong>ровно один</strong> шаг Thought → Action → Observation, а решение «повторить, эскалировать или закончить» принимает conditional edge графа - <code>route_from_metadata_analyst</code>.
+  </p>
+
+  <div style="background-color: #f8fafc; border: 1px solid #dcdfe6; border-radius: 6px; margin: 16px 0; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
+  <div style="background-color: #e6eaf0; color: #1e3a8a; font-size: 11pt; font-weight: 600; padding: 7px 14px; border-bottom: 1px solid #dcdfe6; display: flex; justify-content: space-between; align-items: center;">
+    <span style="color: #0f172a; font-weight: bold;">Python - graph/agents/metadata_analyst.py</span>
+    <span style="color: #64748b; font-size: 9.5pt; font-weight: normal;">UTF-8</span>
+    <span style="color: #0969da; font-size: 9.5pt; cursor: pointer;">Открыть файл</span>
+  </div>
+  <div style="overflow-x: auto; padding: 12px 16px; background-color: #f8fafc;">
+    <table style="border-collapse: collapse; width: 100%; border: none; margin: 0; background: transparent;">
+      <tbody>
+        <tr>
+          <td style="vertical-align: top; width: 28px; min-width: 28px; padding: 0 16px 0 0; border: none; background: transparent; text-align: right; user-select: none;">
+            <pre style="margin: 0; font-family: Consolas, 'JetBrains Mono', monospace; font-size: 10.5pt; line-height: 1.5; color: #94a3b8; background: transparent; border: none; padding: 0; text-align: right;">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17</pre>
+          </td>
+          <td style="vertical-align: top; padding: 0; border: none; background: transparent; width: 100%;">
+            <pre style="margin: 0; font-family: Consolas, 'JetBrains Mono', monospace; font-size: 10.5pt; line-height: 1.5; color: #0a2540; background: transparent; border: none; padding: 0; overflow-x: auto; white-space: pre;">def metadata_analyst_node(state: AgentState) -&gt; dict:
+    iteration = state["react_iteration"] + 1
+    thought = f"Нужно найти объекты метаданных, релевантные запросу: '{state['user_query']}'."
+    found = discover_metadata_tool(state["user_query"])
+
+    if found:
+        observation = f"Найдено {len(found)} объектов: {', '.join(found)}."
+    else:
+        observation = "Наблюдение неполно: по запросу не найдено ни одного объекта метаданных."
+
+    step = {"thought": thought, "action": "discover_metadata_tool(query)", "observation": observation}
+
+    return {
+        "react_steps": state["react_steps"] + [step],
+        "react_iteration": iteration,
+        "discovered_metadata": state["discovered_metadata"] + found,
+    }</pre>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+  <p>
+    Guard, ограничивающий число итераций (<code>MAX_REACT_STEPS = 3</code>), - это тот самый Global Guard из теории HSM: лимит вешается один раз на уровне суперсостояния и защищает от бесконечного цикла «модель не нашла ответ - модель пробует снова с тем же результатом».
+  </p>
+
+  <div style="background-color: #f8fafc; border: 1px solid #dcdfe6; border-radius: 6px; margin: 16px 0; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
+  <div style="background-color: #e6eaf0; color: #1e3a8a; font-size: 11pt; font-weight: 600; padding: 7px 14px; border-bottom: 1px solid #dcdfe6; display: flex; justify-content: space-between; align-items: center;">
+    <span style="color: #0f172a; font-weight: bold;">Python - graph/agents/supervisor.py</span>
+    <span style="color: #64748b; font-size: 9.5pt; font-weight: normal;">UTF-8</span>
+    <span style="color: #0969da; font-size: 9.5pt; cursor: pointer;">Открыть файл</span>
+  </div>
+  <div style="overflow-x: auto; padding: 12px 16px; background-color: #f8fafc;">
+    <table style="border-collapse: collapse; width: 100%; border: none; margin: 0; background: transparent;">
+      <tbody>
+        <tr>
+          <td style="vertical-align: top; width: 28px; min-width: 28px; padding: 0 16px 0 0; border: none; background: transparent; text-align: right; user-select: none;">
+            <pre style="margin: 0; font-family: Consolas, 'JetBrains Mono', monospace; font-size: 10.5pt; line-height: 1.5; color: #94a3b8; background: transparent; border: none; padding: 0; text-align: right;">1
+2
+3
+4
+5
+6
+7
+8
+9</pre>
+          </td>
+          <td style="vertical-align: top; padding: 0; border: none; background: transparent; width: 100%;">
+            <pre style="margin: 0; font-family: Consolas, 'JetBrains Mono', monospace; font-size: 10.5pt; line-height: 1.5; color: #0a2540; background: transparent; border: none; padding: 0; overflow-x: auto; white-space: pre;">def route_from_metadata_analyst(state: AgentState) -&gt; str:
+    last_step = state["react_steps"][-1] if state["react_steps"] else None
+    need_more_info = last_step is not None and "неполно" in last_step["observation"]
+
+    if need_more_info and state["react_iteration"] &lt; MAX_REACT_STEPS:
+        return "metadata_analyst"
+    if state["role"] == "SKD_COLLECTOR":
+        return "skd_collector"
+    return "deliver_to_1c"</pre>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+  <p>
+    В боевой системе <code>discover_metadata_tool</code> обращается к MCP-серверу 1С за реальным списком объектов метаданных (протокол MCP - тема статьи 3 этого цикла); в текущей версии репозитория это детерминированный мок, чтобы граф переходов оставался полностью воспроизводимым в модульных тестах.
+  </p>
+
+  <!-- Раздел 4 -->
+  <h2 id="tot" style="font-size: 19px; line-height: 1.4; margin-top: 35px; margin-bottom: 14px; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px;"><span style="color: #111827; font-weight: bold;">💻 Паттерн Tree-of-Thoughts:</span> <span style="color: #0066cc; font-weight: bold;">Сборщик СКД</span></h2>
+  <p>
+    <strong>Tree-of-Thoughts</strong> (ToT) - паттерн, в котором вместо последовательного уточнения одной гипотезы (как в ReAct) модель за один шаг порождает несколько альтернативных планов решения задачи, оценивает каждый и исполняет только план-победитель. Для построения отчета СКД это особенно оправдано: неверно угаданный макет компоновки данных нельзя «доуточнить» маленькими шагами - его нужно сравнивать с альтернативами целиком.
+  </p>
+
+  <spoiler title="Показать полный листинг graph/agents/skd_collector.py (генерация и оценка планов)">
+<div style="background-color: #f8fafc; border: 1px solid #dcdfe6; border-radius: 6px; margin: 16px 0; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
+  <div style="background-color: #e6eaf0; color: #1e3a8a; font-size: 11pt; font-weight: 600; padding: 7px 14px; border-bottom: 1px solid #dcdfe6; display: flex; justify-content: space-between; align-items: center;">
+    <span style="color: #0f172a; font-weight: bold;">Python — graph/agents/skd_collector.py (генерация и оценка планов)</span>
+    <span style="color: #64748b; font-size: 9.5pt; font-weight: normal;">UTF-8</span>
+    <span style="color: #0969da; font-size: 9.5pt; cursor: pointer;">Открыть файл</span>
+  </div>
+  <div style="overflow-x: auto; padding: 12px 16px; background-color: #f8fafc;">
+    <table style="border-collapse: collapse; width: 100%; border: none; margin: 0; background: transparent;">
+      <tbody>
+        <tr>
+          <td style="vertical-align: top; width: 28px; min-width: 28px; padding: 0 16px 0 0; border: none; background: transparent; text-align: right; user-select: none;">
+            <pre style="margin: 0; font-family: Consolas, 'JetBrains Mono', monospace; font-size: 10.5pt; line-height: 1.5; color: #94a3b8; background: transparent; border: none; padding: 0; text-align: right;">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18</pre>
+          </td>
+          <td style="vertical-align: top; padding: 0; border: none; background: transparent; width: 100%;">
+            <pre style="margin: 0; font-family: Consolas, 'JetBrains Mono', monospace; font-size: 10.5pt; line-height: 1.5; color: #0a2540; background: transparent; border: none; padding: 0; overflow-x: auto; white-space: pre;">def generate_candidate_plans(query: str, discovered_metadata: list[str]) -&gt; list[dict]:
+    base_objects = discovered_metadata or ["РегистрНакопления.ТоварыНаСкладах"]
+
+    candidates = [
+        {
+            "description": f"Простой отчет по остаткам: группировка по номенклатуре ({base_objects[0]}).",
+            "score": 0.6,
+        },
+        {
+            "description": f"Детализированный отчет: группировка по складу и номенклатуре ({', '.join(base_objects)}).",
+            "score": 0.9 if len(base_objects) &gt; 1 else 0.7,
+        },
+        {
+            "description": "Сводный отчет без детализации (только итоговая сумма).",
+            "score": 0.3,
+        },
+    ]
+    return sorted(candidates, key=lambda c: c["score"], reverse=True)</pre>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+</spoiler>
+
+  <p>
+    Если запрос перед этим прошел через Аналитика метаданных и тот нашел несколько объектов, оценка «детализированного» плана растет автоматически (0.9 против 0.7) - число найденных объектов метаданных напрямую влияет на выбор ветки дерева гипотез. Узел <code>skd_collector_node</code> берет план с максимальной оценкой и передает его в <code>execute_skd_report_tool</code> (в боевой системе - реальный вызов СКД через MCP-сервер).
+  </p>
+
+  <!-- Раздел 5 -->
+  <h2 id="supervisor-graph" style="font-size: 19px; line-height: 1.4; margin-top: 35px; margin-bottom: 14px; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px;"><span style="color: #111827; font-weight: bold;">💻 Сборка графа:</span> <span style="color: #0066cc; font-weight: bold;">супервайзер и conditional edges</span></h2>
+  <p>
+    LangGraph выражает ветвление не через <code>if</code> внутри узла, а через <code>add_conditional_edges</code>: узел меняет состояние, а отдельная чистая функция-маршрутизатор его читает и решает, куда идти дальше. Это разделение - ключевое отличие управляемого графа состояний от произвольного агентного скрипта.
+  </p>
+
+  <div style="background-color: #f8fafc; border: 1px solid #dcdfe6; border-radius: 6px; margin: 16px 0; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
+  <div style="background-color: #e6eaf0; color: #1e3a8a; font-size: 11pt; font-weight: 600; padding: 7px 14px; border-bottom: 1px solid #dcdfe6; display: flex; justify-content: space-between; align-items: center;">
+    <span style="color: #0f172a; font-weight: bold;">Python - graph/build.py</span>
+    <span style="color: #64748b; font-size: 9.5pt; font-weight: normal;">UTF-8</span>
+    <span style="color: #0969da; font-size: 9.5pt; cursor: pointer;">Открыть файл</span>
+  </div>
+  <div style="overflow-x: auto; padding: 12px 16px; background-color: #f8fafc;">
+    <table style="border-collapse: collapse; width: 100%; border: none; margin: 0; background: transparent;">
+      <tbody>
+        <tr>
+          <td style="vertical-align: top; width: 28px; min-width: 28px; padding: 0 16px 0 0; border: none; background: transparent; text-align: right; user-select: none;">
+            <pre style="margin: 0; font-family: Consolas, 'JetBrains Mono', monospace; font-size: 10.5pt; line-height: 1.5; color: #94a3b8; background: transparent; border: none; padding: 0; text-align: right;">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25</pre>
+          </td>
+          <td style="vertical-align: top; padding: 0; border: none; background: transparent; width: 100%;">
+            <pre style="margin: 0; font-family: Consolas, 'JetBrains Mono', monospace; font-size: 10.5pt; line-height: 1.5; color: #0a2540; background: transparent; border: none; padding: 0; overflow-x: auto; white-space: pre;">workflow.add_edge(START, "supervisor")
+
+workflow.add_conditional_edges(
+    "supervisor",
+    route_from_supervisor,
+    {
+        "metadata_analyst": "metadata_analyst",
+        "skd_collector": "skd_collector",
+        "general_answer": "general_answer",
+    },
+)
+
+workflow.add_conditional_edges(
+    "metadata_analyst",
+    route_from_metadata_analyst,
+    {
+        "metadata_analyst": "metadata_analyst",
+        "skd_collector": "skd_collector",
+        "deliver_to_1c": "deliver_to_1c",
+    },
+)
+
+workflow.add_edge("skd_collector", "deliver_to_1c")
+workflow.add_edge("general_answer", "deliver_to_1c")
+workflow.add_edge("deliver_to_1c", END)</pre>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+  <p>
+    Обратите внимание: узел <code>skd_collector</code> достижим двумя путями - напрямую от супервайзера (если намерение сразу однозначно про отчет) и через <code>metadata_analyst</code> (если сначала потребовалось найти объекты метаданных). Обе ветки сходятся в единственном терминальном узле <code>deliver_to_1c</code>, что сохраняет свойство FSM из статьи 1: терминальные состояния (<code>F ⊆ S</code>) должны быть предсказуемым и небольшим множеством, а не размазаны по графу.
+  </p>
+
+  <!-- Раздел 6 -->
+  <h2 id="tests" style="font-size: 19px; line-height: 1.4; margin-top: 35px; margin-bottom: 14px; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px;"><span style="color: #111827; font-weight: bold;">🔍 Тестирование:</span> <span style="color: #0066cc; font-weight: bold;">маршрутизация графа</span></h2>
+  <p>
+    Поскольку узлы и маршрутизаторы - обычные чистые функции Python, весь граф проверяется модульными тестами <code>pytest</code> без обращения к реальному LLM или MCP-серверу: достаточно собрать <code>AgentState</code> и провалидировать, в какую роль ушел запрос и сколько шагов ReAct потребовалось.
+  </p>
+
+  <div style="background-color: #f8fafc; border: 1px solid #dcdfe6; border-radius: 6px; margin: 16px 0; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
+  <div style="background-color: #e6eaf0; color: #1e3a8a; font-size: 11pt; font-weight: 600; padding: 7px 14px; border-bottom: 1px solid #dcdfe6; display: flex; justify-content: space-between; align-items: center;">
+    <span style="color: #0f172a; font-weight: bold;">Python - tests/test_metadata_analyst.py</span>
+    <span style="color: #64748b; font-size: 9.5pt; font-weight: normal;">UTF-8</span>
+    <span style="color: #0969da; font-size: 9.5pt; cursor: pointer;">Открыть файл</span>
+  </div>
+  <div style="overflow-x: auto; padding: 12px 16px; background-color: #f8fafc;">
+    <table style="border-collapse: collapse; width: 100%; border: none; margin: 0; background: transparent;">
+      <tbody>
+        <tr>
+          <td style="vertical-align: top; width: 28px; min-width: 28px; padding: 0 16px 0 0; border: none; background: transparent; text-align: right; user-select: none;">
+            <pre style="margin: 0; font-family: Consolas, 'JetBrains Mono', monospace; font-size: 10.5pt; line-height: 1.5; color: #94a3b8; background: transparent; border: none; padding: 0; text-align: right;">1
+2
+3
+4
+5
+6
+7
+8</pre>
+          </td>
+          <td style="vertical-align: top; padding: 0; border: none; background: transparent; width: 100%;">
+            <pre style="margin: 0; font-family: Consolas, 'JetBrains Mono', monospace; font-size: 10.5pt; line-height: 1.5; color: #0a2540; background: transparent; border: none; padding: 0; overflow-x: auto; white-space: pre;">def test_metadata_analyst_route_stops_after_max_react_steps_on_unknown_query():
+    app = build_agent_app()
+    config = {"configurable": {"thread_id": "conv-test-3"}}
+    result = app.invoke(_base_state("покажи метаданные для чего-то незнакомого"), config=config)
+
+    assert result["role"] == "METADATA_ANALYST"
+    assert len(result["react_steps"]) == MAX_REACT_STEPS
+    assert result["discovered_metadata"] == []</pre>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+  <p>Такой тест фиксирует именно то поведение, которое обещает Guard из теории HSM: агент не зависает в цикле ReAct навсегда, а после трех безуспешных попыток детерминированно передает управление дальше по графу.</p>
+
+  <!-- Раздел 7 -->
+  <h2 id="next" style="font-size: 19px; line-height: 1.4; margin-top: 35px; margin-bottom: 14px; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px;"><span style="color: #111827; font-weight: bold;">🤝 Итоги:</span> <span style="color: #0066cc; font-weight: bold;">что дальше</span></h2>
+  <p>
+    Оба инструмента этой статьи - <code>discover_metadata_tool</code> и <code>execute_skd_report_tool</code> - сегодня являются моками. В статье 3 цикла они станут настоящими вызовами к MCP-серверу 1С: разберем протокол Model Context Protocol, валидацию ответов через Instructor/Pydantic, борьбу с нечувствительностью LLM к регистру имен объектов метаданных и генерацию кликабельных навигационных ссылок вида <code>e1cib/data/...</code> прямо в ответе агента.
+  </p>
+  <p>Полный код ролей - в <code>NOPik/orchestrator/graph/agents/</code> репозитория проекта.</p>
+
+  <hr style="border: none; border-top: 1px solid #eaecef; margin: 28px 0 20px 0;">
+  <p style="color: #444d56;">
+    <em>Как в вашей практике решается баланс между глубиной цикла ReAct (сколько итераций уточнения допустимо) и стоимостью лишних вызовов LLM? Делитесь подходами в комментариях - обсудим в следующих статьях цикла.</em>
+  </p>
+
+  <p><strong>Теги:</strong> LangGraph, Мультиагентные системы, ReAct, Tree-of-Thoughts, Граф состояний, Супервайзер, Оркестрация агентов, СКД, MCP, LLM, Enterprise AI, 1С:Предприятие 8.3, Python, NOPik, Автоматизация 1С, Иерархический автомат, HSM, FSM</p>
+
+</div>
